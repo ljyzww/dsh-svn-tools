@@ -12,7 +12,7 @@
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![dsh](https://img.shields.io/badge/dsh-%3E%3D0.1.0--rc.6-4c8bf5.svg)](#与-dsh-的版本兼容)
 [![tools](https://img.shields.io/badge/agent%20tools-33-2ea44f.svg)](#agent-工具33-个)
-[![verified](https://img.shields.io/badge/verified-0.1.6%20%7C%200.2.0--rc.2-8957e5.svg)](#自检与开发)
+[![verified](https://img.shields.io/badge/verified-0.1.6%20%7C%200.2.0--rc.2%20%7C%200.2.1--rc.2-8957e5.svg)](#自检与开发)
 
 **无前置依赖**：面板载体可切换，也可完全不注册（只用 agent 工具）；插件不在安装期执行任何脚本。
 
@@ -56,7 +56,7 @@
 dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools
 
 # 锁定某个版本（可复现安装；代价见「更新与安装形态」）
-dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.4
+dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.5
 
 # 本地源码开发
 dsh plugin --profile web add file:./plugins/dsh-svn-tools
@@ -202,9 +202,16 @@ SVN 不在工作副本保存提交日志文本，因此这些条目明确显示�
   自带侧边栏自 `0.1.0-rc.6` 起可用，因此判断标准是「rc.6 及以上全部支持」，不按大版本切段。
 - DSH 的插件兼容门禁（`dsh-app-boot` 的 `evaluatePluginCompatibility`）只用
   `semver.satisfies(runtime, range, { includePrerelease: true })` 判 `@deepseek-ai/dsh` / `@deepseek-ai/dsh-*` 两类 peer，
-  预发布参与比较。
+  预发布参与比较；`engines.dsh` 存在时**单独决定**（peer 不再参与）。
 - 插件市场（`dshmarket`）用 `deriveHostCompatibility` 判定，并把 `engines.dsh` 与 peer 一起作为**合取**条件。
+- **激活条件（0.2.x 的关键点）**：cordis 对 `inject` 里声明了、运行时却没有提供的服务会**永不激活**插件，
+  而 0.2.x 移除了 host 服务 `webRuntime`。因此本插件**不再 inject** `webRuntime`：
+  请求鉴权改走 0.2.x 的 `connection.requestRejection(request)`（Host/Origin 栅栏 + 浏览器登录校验，
+  与官方路由同一策略），0.1.x 则回退到自带的 Host/Origin 栅栏 + 部署的 `trustedHosts`；
+  两者都用 `Reflect.get` 读取，不写进 `inject`。
 - 已在真实运行时上验证：**0.1.6** 与 **0.2.0-rc.2**（含全部 peer 依赖）自检通过；
+  **0.2.1-rc.2** 的服务集（无 `webRuntime`、有 `connection`）由 `verify:hardening` 的激活用例覆盖：
+  33 个工具与 `/svn/api` 路由全部注册。
   并用门禁与市场各自的实际判定函数实测本清单：`0.1.0-rc.6` / `0.1.5-rc.1` / `0.1.6-alpha.1` / `0.2.0-rc.2` / `0.2.1-alpha.1` / `0.3.0-rc.1` 全部兼容，`0.1.0-rc.5` 被拦。
 
 ## 更新与安装形态
@@ -213,7 +220,7 @@ SVN 不在工作副本保存提交日志文本，因此这些条目明确显示�
 
 - 检查器需要两件事：已安装副本的 `package.json` 有 **`repository` 字段**（本包自 0.13.0 起声明），以及仓库有 **GitHub Release**（本仓库按 `v<版本>` 发布）。
   它按**版本号**比较，所以 tag/commit pin 的安装同样能收到提示。
-- 插件市场按 **ref / commit 身份**比较：裸仓库 spec 会跟随默认分支；一旦装成带 ref 的 spec（`#v0.13.4` 或 `#<commit>`），**市场对那个 ref 永远报「已是最新」**——这是 pin 的语义（可复现安装优先），不是故障。
+- 插件市场按 **ref / commit 身份**比较：裸仓库 spec 会跟随默认分支；一旦装成带 ref 的 spec（`#v0.13.5` 或 `#<commit>`），**市场对那个 ref 永远报「已是最新」**——这是 pin 的语义（可复现安装优先），不是故障。
 
 因此：
 

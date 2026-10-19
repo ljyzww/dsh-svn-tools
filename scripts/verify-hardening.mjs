@@ -12,14 +12,19 @@
  *      itself, so a caller-supplied `--config-dir=` could execute commands via
  *      diff-cmd/editor-cmd);
  *   3. `prepareForCommit` reports the new `failed` list, so a repair that did
- *      not happen is never reported as done.
+ *      not happen is never reported as done;
+ *   4. the plugin must stay activatable across DSH generations: its `inject`
+ *      may not name `webRuntime` (removed in 0.2.x — a missing service stops
+ *      cordis from ever activating the plugin), and the request fence must
+ *      prefer 0.2.x's `connection.requestRejection` while still working on
+ *      0.1.x's `webRuntime.trustedHosts`.
  *
  * Usage:  node scripts/verify-hardening.mjs
  * Exit code 0 = all checks passed.
  */
-import { __test } from '../lib/index.js';
+import { __test, apply, inject } from '../lib/index.js';
 
-const { resolveTargetAbs, positionalArg, prepareForCommit } = __test;
+const { resolveTargetAbs, positionalArg, prepareForCommit, requestRejection } = __test;
 
 let failures = 0;
 function check(cond, label, detail) {
@@ -76,6 +81,56 @@ check(Array.isArray(prepared.added), 'added is an array');
 check(Array.isArray(prepared.deleted), 'deleted is an array');
 check(Array.isArray(prepared.skipped), 'skipped is an array');
 check(Array.isArray(prepared.failed), 'failed is an array (a repair that did not happen is never reported as done)');
+
+// ------------------------------- 4) activation and the cross-generation fence
+console.log('inject stays compatible with both DSH generations:');
+check(Array.isArray(inject), 'inject is exported as an array');
+check(!inject.includes('webRuntime'), 'inject does not name webRuntime (removed in DSH 0.2.x — a missing service disables the plugin)');
+for (const svc of ['tools', 'webServer', 'sessions', 'agents', 'llm']) {
+  check(inject.includes(svc), `inject still requires ${svc}`);
+}
+
+// A 0.2.x-shaped composition: everything the plugin injects, plus the
+// `connection` service, and NO `webRuntime`. Before the fix this was the exact
+// shape that left the plugin permanently inactive after a DSH update.
+console.log('the plugin activates on a 0.2.x service set (no webRuntime):');
+{
+  const registered = [];
+  const routes = [];
+  const ctx = {
+    tools: { register: (def) => registered.push(def?.name) },
+    webServer: { register: (options) => { routes.push(options); return () => {}; } },
+    sessions: { get: () => ({ header: { cwd: process.cwd() } }) },
+    agents: {},
+    llm: {},
+    connection: { requestRejection: () => undefined },
+    effect: (fn) => (typeof fn === 'function' ? fn() : () => {}),
+    inject: (_deps, cb) => { cb(ctx); return () => {}; },
+  };
+  await apply(ctx, {});
+  check(registered.length === 33, 'registers all 33 agent tools without webRuntime', String(registered.length));
+  check(routes.some((r) => r.path === '/svn/api' && r.kind === 'prefix'), 'mounts the /svn/api route');
+}
+
+console.log('request authorisation follows the running DSH generation:');
+const loopbackReq = { headers: { host: '127.0.0.1:9870' } };
+const crossSiteReq = { headers: { host: '127.0.0.1:9870', 'sec-fetch-site': 'cross-site' } };
+// 0.2.x: the composition's connection service answers (403/401 or undefined).
+check(requestRejection({ connection: { requestRejection: () => 403 } }, loopbackReq) === 403,
+  'connection.requestRejection(403) is honoured');
+check(requestRejection({ connection: { requestRejection: () => 401 } }, loopbackReq) === 401,
+  'connection.requestRejection(401) is honoured');
+check(requestRejection({ connection: { requestRejection: () => undefined } }, crossSiteReq) === undefined,
+  'the connection service is authoritative when it allows the request');
+// 0.1.x: no connection service, so the local fence runs with trustedHosts.
+check(requestRejection({ webRuntime: { trustedHosts: [] } }, loopbackReq) === undefined,
+  '0.1.x: a loopback request passes the local fence');
+check(requestRejection({ webRuntime: { trustedHosts: [] } }, crossSiteReq) === 403,
+  '0.1.x: a cross-site request is refused by the local fence');
+check(requestRejection({}, loopbackReq) === undefined,
+  'fail-open only for loopback when neither service exists (our own machine)');
+check(requestRejection({}, { headers: { host: 'example.com' } }) === 403,
+  'fail closed for a remote authority when neither service exists');
 
 if (failures > 0) {
   console.error(`\n${failures} check(s) FAILED`);
