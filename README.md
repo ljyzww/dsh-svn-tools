@@ -56,7 +56,7 @@
 dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools
 
 # 锁定某个版本（可复现安装；代价见「更新与安装形态」）
-dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.5
+dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.6
 
 # 本地源码开发
 dsh plugin --profile web add file:./plugins/dsh-svn-tools
@@ -208,7 +208,10 @@ SVN 不在工作副本保存提交日志文本，因此这些条目明确显示�
   而 0.2.x 移除了 host 服务 `webRuntime`。因此本插件**不再 inject** `webRuntime`：
   请求鉴权改走 0.2.x 的 `connection.requestRejection(request)`（Host/Origin 栅栏 + 浏览器登录校验，
   与官方路由同一策略），0.1.x 则回退到自带的 Host/Origin 栅栏 + 部署的 `trustedHosts`；
-  两者都用 `Reflect.get` 读取，不写进 `inject`。
+  两者都用 `ctx.get(name, false)`（cordis 的非严格查找）读取、不写进 `inject`：
+  直接读 `ctx.<name>` 或 `Reflect.get(ctx, name)` 会被 cordis 的守卫以
+  `cannot get property … without inject` 抛出，路由随即变成 DSH webserver 的
+  空响应体 400（面板只能显示「HTTP 400」）。栅栏本身也不会向上抛错误。
 - 已在真实运行时上验证：**0.1.6** 与 **0.2.0-rc.2**（含全部 peer 依赖）自检通过；
   **0.2.1-rc.2** 的服务集（无 `webRuntime`、有 `connection`）由 `verify:hardening` 的激活用例覆盖：
   33 个工具与 `/svn/api` 路由全部注册。
@@ -220,7 +223,7 @@ SVN 不在工作副本保存提交日志文本，因此这些条目明确显示�
 
 - 检查器需要两件事：已安装副本的 `package.json` 有 **`repository` 字段**（本包自 0.13.0 起声明），以及仓库有 **GitHub Release**（本仓库按 `v<版本>` 发布）。
   它按**版本号**比较，所以 tag/commit pin 的安装同样能收到提示。
-- 插件市场按 **ref / commit 身份**比较：裸仓库 spec 会跟随默认分支；一旦装成带 ref 的 spec（`#v0.13.5` 或 `#<commit>`），**市场对那个 ref 永远报「已是最新」**——这是 pin 的语义（可复现安装优先），不是故障。
+- 插件市场按 **ref / commit 身份**比较：裸仓库 spec 会跟随默认分支；一旦装成带 ref 的 spec（`#v0.13.6` 或 `#<commit>`），**市场对那个 ref 永远报「已是最新」**——这是 pin 的语义（可复现安装优先），不是故障。
 
 因此：
 

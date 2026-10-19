@@ -56,7 +56,7 @@ Install from the [DSH plugin market](https://awesome-dsh-plugin.com/p/zengweiche
 dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools
 
 # Pin a version (reproducible install; see "Updates and install form" for the trade-off)
-dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.5
+dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.6
 
 # Local source checkout
 dsh plugin --profile web add file:./plugins/dsh-svn-tools
@@ -203,7 +203,7 @@ Invalid values (a misspelled carrier, an out-of-range number) are rejected by th
 - DSH's plugin compatibility gate (`evaluatePluginCompatibility` in `dsh-app-boot`) inspects `@deepseek-ai/dsh` and `@deepseek-ai/dsh-*` peers through
   `semver.satisfies(runtime, range, { includePrerelease: true })`, so prereleases take part in the comparison; when `engines.dsh` is present it **decides alone** (the peers are then ignored).
 - The plugin market (`dshmarket`) decides with `deriveHostCompatibility`, treating `engines.dsh` and the peers as **conjunctive** conditions.
-- **Activation (the 0.2.x trap)**: cordis never activates a plugin whose `inject` names a service the runtime does not provide, and 0.2.x removed the host `webRuntime` service. This plugin therefore does **not** inject it: request authorisation now goes through 0.2.x's `connection.requestRejection(request)` (the Host/Origin fence plus browser authentication, the same policy first-party routes use), with 0.1.x falling back to the built-in Host/Origin fence and the deployment's `trustedHosts`. Both are read through `Reflect.get`, never declared in `inject`.
+- **Activation (the 0.2.x trap)**: cordis never activates a plugin whose `inject` names a service the runtime does not provide, and 0.2.x removed the host `webRuntime` service. This plugin therefore does **not** inject it: request authorisation now goes through 0.2.x's `connection.requestRejection(request)` (the Host/Origin fence plus browser authentication, the same policy first-party routes use), with 0.1.x falling back to the built-in Host/Origin fence and the deployment's `trustedHosts`. Both are read through `ctx.get(name, false)` — cordis's non-strict lookup — never declared in `inject`: reading `ctx.<name>` or `Reflect.get(ctx, name)` for a non-injected service makes cordis throw `cannot get property … without inject`, which the web server turns into an empty-bodied HTTP 400 (all the panel can report is "HTTP 400"). The fence itself never throws upward.
 - Verified on real runtimes: **0.1.6** and **0.2.0-rc.2** (with all peer dependencies). The **0.2.1-rc.2** service set (no `webRuntime`, with `connection`) is covered by the activation case in `verify:hardening`: all 33 tools and the `/svn/api` route register. Both the gate's and the market's own evaluation functions were run against this manifest: `0.1.0-rc.6` / `0.1.5-rc.1` / `0.1.6-alpha.1` / `0.2.0-rc.2` / `0.2.1-alpha.1` / `0.3.0-rc.1` are all compatible; `0.1.0-rc.5` is rejected.
 
 ## Updates and install form
@@ -212,7 +212,7 @@ Invalid values (a misspelled carrier, an out-of-range number) are rejected by th
 
 - The checker needs two things: a **`repository` field** in the installed copy's `package.json` (declared since 0.13.0) and a **GitHub Release** in the repository (published as `v<version>` here).
   It compares **version numbers**, so tag- and commit-pinned installs are notified too.
-- The market compares **ref / commit identity**: a bare repository spec follows the default branch, while a spec with a ref (`#v0.13.5` or `#<commit>`) makes the market report "up to date" for that ref **forever** — that is what pinning means (reproducibility first), not a bug.
+- The market compares **ref / commit identity**: a bare repository spec follows the default branch, while a spec with a ref (`#v0.13.6` or `#<commit>`) makes the market report "up to date" for that ref **forever** — that is what pinning means (reproducibility first), not a bug.
 
 | Your goal | Do this |
 |---|---|

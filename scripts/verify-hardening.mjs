@@ -132,6 +132,41 @@ check(requestRejection({}, loopbackReq) === undefined,
 check(requestRejection({}, { headers: { host: 'example.com' } }) === 403,
   'fail closed for a remote authority when neither service exists');
 
+// The guard that broke the panel: cordis throws on `ctx.<name>` (and therefore
+// on `Reflect.get(ctx, '<name>')`) for a service the plugin did not inject —
+// "cannot get property X without inject". The route answered with a bare
+// HTTP 400 and an empty body. `ctx.get(name, false)` is the escape hatch.
+console.log('a cordis-like context (property access throws without inject):');
+{
+  const cordisLike = (services) => {
+    const target = { get: (name, strict = true) => services[name] };
+    return new Proxy(target, {
+      get(inner, prop) {
+        if (prop in inner) return inner[prop];
+        throw new Error(`cannot get property "${String(prop)}" without inject`);
+      },
+    });
+  };
+  const withConnection = cordisLike({ connection: { requestRejection: () => 403 } });
+  check(throws(() => withConnection.connection) !== null, 'the stand-in really throws on property access');
+  check(throws(() => requestRejection(withConnection, loopbackReq)) === null,
+    'requestRejection never throws on such a context');
+  check(requestRejection(withConnection, loopbackReq) === 403, 'it still honours connection.requestRejection');
+  const withoutConnection = cordisLike({ webRuntime: { trustedHosts: [] } });
+  check(requestRejection(withoutConnection, crossSiteReq) === 403,
+    'it falls back to the local fence when connection is absent');
+  check(requestRejection(cordisLike({}), { headers: { host: 'example.com' } }) === 403,
+    'and still refuses a remote authority with no services at all');
+}
+console.log('a throwing connection service does not break the route:');
+{
+  const broken = { connection: { requestRejection: () => { throw new Error('boom'); } } };
+  check(throws(() => requestRejection(broken, crossSiteReq)) === null,
+    'requestRejection swallows the service failure');
+  check(requestRejection(broken, crossSiteReq) === 403,
+    'and answers through the local fence (cross-site is still refused)');
+}
+
 if (failures > 0) {
   console.error(`\n${failures} check(s) FAILED`);
   process.exit(1);
