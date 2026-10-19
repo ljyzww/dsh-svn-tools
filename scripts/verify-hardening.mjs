@@ -117,11 +117,15 @@ const loopbackReq = { headers: { host: '127.0.0.1:9870' } };
 const crossSiteReq = { headers: { host: '127.0.0.1:9870', 'sec-fetch-site': 'cross-site' } };
 // 0.2.x: the composition's connection service answers (403/401 or undefined).
 check(requestRejection({ connection: { requestRejection: () => 403 } }, loopbackReq) === 403,
-  'connection.requestRejection(403) is honoured');
-check(requestRejection({ connection: { requestRejection: () => 401 } }, loopbackReq) === 401,
-  'connection.requestRejection(401) is honoured');
+  'connection.requestRejection(403) is obeyed (the composition fence said no)');
 check(requestRejection({ connection: { requestRejection: () => undefined } }, crossSiteReq) === undefined,
   'the connection service is authoritative when it allows the request');
+// 401 = "no browser credential": this plugin's endpoint is plain HTTP of the
+// same page, so the local fence decides instead of locking the panel out.
+check(requestRejection({ connection: { requestRejection: () => 401 } }, loopbackReq) === undefined,
+  'a 401 falls back to the local fence, so a loopback page still works');
+check(requestRejection({ connection: { requestRejection: () => 401 } }, crossSiteReq) === 403,
+  'a 401 never bypasses the local cross-site refusal');
 // 0.1.x: no connection service, so the local fence runs with trustedHosts.
 check(requestRejection({ webRuntime: { trustedHosts: [] } }, loopbackReq) === undefined,
   '0.1.x: a loopback request passes the local fence');
