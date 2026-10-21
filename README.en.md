@@ -46,6 +46,7 @@
 | **Works when the server is down** | Offline history comes from the local log cache plus `.svn/wc.db` revision metadata; read-only mode disables writes with a second server-side check |
 | **Commit preparation** | Unversioned `?` files are `svn add`ed and missing `!` files `svn delete`d before committing — with honest reporting (including failures) and a switch for each action |
 | **Two DSH generations** | Compatible with `>=0.1.0-rc.6`; the settings surface adapts per version (0.1.x namespace card / 0.2.x entry-config form) |
+| **Follows the host theme** | Every panel colour comes from DSH theme semantic aliases (`--dsw-alias-*`), so light and dark modes both work; text contrast is measured against WCAG AA |
 
 ## Install
 
@@ -56,7 +57,7 @@ Install from the [DSH plugin market](https://awesome-dsh-plugin.com/p/zengweiche
 dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools
 
 # Pin a version (reproducible install; see "Updates and install form" for the trade-off)
-dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.7
+dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.8
 
 # Local source checkout
 dsh plugin --profile web add file:./plugins/dsh-svn-tools
@@ -200,6 +201,11 @@ Invalid values (a misspelled carrier, an out-of-range number) are rejected by th
 
 - `peerDependencies`: `@deepseek-ai/dsh-tools: >=0.1.0-rc.6`, with `engines.dsh: >=0.1.0-rc.6` declared as well.
   The built-in sidebar exists from `0.1.0-rc.6` on, so the criterion is "rc.6 and everything above", not per-major-line ranges.
+- **Panel colours depend on theme tokens**: the panel stylesheet only references DSH theme semantic aliases
+  (`--dsw-alias-*`, `--dsw-elevation-*`, `--dsw-radius-*`) — no colour literals and no light/dark branches of its own,
+  following the feature-component rules in DSH `docs/web-styling.zh.md`. Those tokens were introduced in `0.1.0-rc.7`,
+  so the **themed look needs `0.1.0-rc.7+`**; on `0.1.0-rc.6` the host provides none of them and the panel falls back to the
+  host's default foreground colour (text stays readable, hairlines and surfaces disappear) without any functional loss.
 - DSH's plugin compatibility gate (`evaluatePluginCompatibility` in `dsh-app-boot`) inspects `@deepseek-ai/dsh` and `@deepseek-ai/dsh-*` peers through
   `semver.satisfies(runtime, range, { includePrerelease: true })`, so prereleases take part in the comparison; when `engines.dsh` is present it **decides alone** (the peers are then ignored).
 - The plugin market (`dshmarket`) decides with `deriveHostCompatibility`, treating `engines.dsh` and the peers as **conjunctive** conditions.
@@ -212,7 +218,7 @@ Invalid values (a misspelled carrier, an out-of-range number) are rejected by th
 
 - The checker needs two things: a **`repository` field** in the installed copy's `package.json` (declared since 0.13.0) and a **GitHub Release** in the repository (published as `v<version>` here).
   It compares **version numbers**, so tag- and commit-pinned installs are notified too.
-- The market compares **ref / commit identity**: a bare repository spec follows the default branch, while a spec with a ref (`#v0.13.7` or `#<commit>`) makes the market report "up to date" for that ref **forever** — that is what pinning means (reproducibility first), not a bug.
+- The market compares **ref / commit identity**: a bare repository spec follows the default branch, while a spec with a ref (`#v0.13.8` or `#<commit>`) makes the market report "up to date" for that ref **forever** — that is what pinning means (reproducibility first), not a bug.
 
 | Your goal | Do this |
 |---|---|

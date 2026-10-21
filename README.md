@@ -46,6 +46,7 @@
 | **服务不可达时仍可用** | 离线模式下「历史」取自本地日志缓存 + `.svn/wc.db` 修订元数据，只读模式一键禁写（服务端双重拦截） |
 | **提交前自动整理** | 未版本化 `?` 自动 `svn add`、缺失 `!` 自动 `svn delete`，结果如实回报（含失败项）；两个动作各有开关 |
 | **两代 DSH 通用** | 兼容 `>=0.1.0-rc.6`；设置入口按版本自动适配（0.1.x 命名空间卡片 / 0.2.x 条目配置表单） |
+| **跟随宿主主题** | 面板配色全部取 DSH 主题语义别名 `--dsw-alias-*`，浅色/深色自动适配；文字对比度按 WCAG AA 实测 |
 
 ## 安装
 
@@ -56,7 +57,7 @@
 dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools
 
 # 锁定某个版本（可复现安装；代价见「更新与安装形态」）
-dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.7
+dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.8
 
 # 本地源码开发
 dsh plugin --profile web add file:./plugins/dsh-svn-tools
@@ -200,6 +201,10 @@ SVN 不在工作副本保存提交日志文本，因此这些条目明确显示�
 
 - `peerDependencies`：`@deepseek-ai/dsh-tools: >=0.1.0-rc.6`，同时声明 `engines.dsh: >=0.1.0-rc.6`。
   自带侧边栏自 `0.1.0-rc.6` 起可用，因此判断标准是「rc.6 及以上全部支持」，不按大版本切段。
+- **面板配色依赖主题 token**：面板样式只引用 DSH 主题包的语义别名（`--dsw-alias-*`、`--dsw-elevation-*`、`--dsw-radius-*`），
+  不写颜色字面量、不自带明暗分支（依据 DSH `docs/web-styling.zh.md` 的功能组件规则）。这批 token 自 `0.1.0-rc.7` 引入，
+  因此**主题化外观需要 `0.1.0-rc.7+`**；在 `0.1.0-rc.6` 上宿主不提供这些 token，面板会退回宿主默认前景色
+  （文字仍可读，分隔线与底色不显示），功能不受影响。
 - DSH 的插件兼容门禁（`dsh-app-boot` 的 `evaluatePluginCompatibility`）只用
   `semver.satisfies(runtime, range, { includePrerelease: true })` 判 `@deepseek-ai/dsh` / `@deepseek-ai/dsh-*` 两类 peer，
   预发布参与比较；`engines.dsh` 存在时**单独决定**（peer 不再参与）。
@@ -223,7 +228,7 @@ SVN 不在工作副本保存提交日志文本，因此这些条目明确显示�
 
 - 检查器需要两件事：已安装副本的 `package.json` 有 **`repository` 字段**（本包自 0.13.0 起声明），以及仓库有 **GitHub Release**（本仓库按 `v<版本>` 发布）。
   它按**版本号**比较，所以 tag/commit pin 的安装同样能收到提示。
-- 插件市场按 **ref / commit 身份**比较：裸仓库 spec 会跟随默认分支；一旦装成带 ref 的 spec（`#v0.13.7` 或 `#<commit>`），**市场对那个 ref 永远报「已是最新」**——这是 pin 的语义（可复现安装优先），不是故障。
+- 插件市场按 **ref / commit 身份**比较：裸仓库 spec 会跟随默认分支；一旦装成带 ref 的 spec（`#v0.13.8` 或 `#<commit>`），**市场对那个 ref 永远报「已是最新」**——这是 pin 的语义（可复现安装优先），不是故障。
 
 因此：
 
