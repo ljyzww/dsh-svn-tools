@@ -209,6 +209,32 @@ check(html.includes('dsh-svn-mode readonly'), 'mode chip is 只读');
 check(html.includes('dsh-svn-banner readonly'), 'read-only banner is shown');
 check(html.includes('退出只读'), 'read-only banner offers the way out');
 
+console.log('empty state — loading / failed / clean:');
+const ChangesView = t.ChangesView;
+const CommitView = t.CommitView;
+if (!ChangesView || !CommitView) {
+  console.error('lib/client.js does not expose ChangesView/CommitView for the empty-state checks');
+  process.exit(2);
+}
+html = renderToStaticMarkup(React.createElement(ChangesView, {
+  entries: [], sel: {}, rawEntries: null, rawCount: 0, loaded: false,
+}));
+check(/正在读取工作副本/.test(html), 'a not-yet-loaded list says 正在读取');
+check(!/工作副本干净/.test(html), 'a not-yet-loaded list never claims the tree is clean');
+html = renderToStaticMarkup(React.createElement(ChangesView, {
+  entries: [], sel: {}, rawEntries: [], rawCount: 0, loaded: false, failed: 'HTTP 400',
+}));
+check(/无法读取工作副本状态/.test(html), 'a failed load is reported instead of 干净');
+check(!/工作副本干净/.test(html), 'a failed load never claims the tree is clean');
+html = renderToStaticMarkup(React.createElement(ChangesView, {
+  entries: [], sel: {}, rawEntries: [], rawCount: 0, loaded: true,
+}));
+check(/工作副本干净/.test(html), 'a genuinely clean tree still says 干净');
+html = renderToStaticMarkup(React.createElement(CommitView, {
+  entries: [], sel: {}, msg: '', commitAll: true, hiddenUnvCount: 0, loaded: false, failed: 'HTTP 400',
+}));
+check(/无法读取工作副本状态/.test(html), 'the commit hint repeats the load failure');
+
 if (failures > 0) {
   console.error(`\n${failures} check(s) FAILED`);
   process.exit(1);
