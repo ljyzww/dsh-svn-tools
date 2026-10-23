@@ -202,9 +202,15 @@ SVN 不在工作副本保存提交日志文本，因此这些条目明确显示�
 - `peerDependencies`：`@deepseek-ai/dsh-tools: >=0.1.0-rc.6`，同时声明 `engines.dsh: >=0.1.0-rc.6`。
   自带侧边栏自 `0.1.0-rc.6` 起可用，因此判断标准是「rc.6 及以上全部支持」，不按大版本切段。
 - **面板配色依赖主题 token**：面板样式只引用 DSH 主题包的语义别名（`--dsw-alias-*`、`--dsw-elevation-*`、`--dsw-radius-*`），
-  不写颜色字面量、不自带明暗分支（依据 DSH `docs/web-styling.zh.md` 的功能组件规则）。这批 token 自 `0.1.0-rc.7` 引入，
-  因此**主题化外观需要 `0.1.0-rc.7+`**；在 `0.1.0-rc.6` 上宿主不提供这些 token，面板会退回宿主默认前景色
-  （文字仍可读，分隔线与底色不显示），功能不受影响。
+  不写颜色字面量、不自带明暗分支（依据 DSH `docs/web-styling.zh.md` 的功能组件规则）。这批 token 由宿主的 ui-theme 提供，
+  具体集合随构建版本略有差异；少数 token（`--dsw-radius-*`、`--dsw-focus-ring-*`、`--dsw-alias-file-diff-*`）**并非每个构建都会导出**，
+  因此统一经 `--dsh-svn-*` 局部变量读取并带内置兜底：宿主没有时退化为直角 / 默认焦点环 / 状态色差异底色，
+  而不是整条声明失效。`verify:theme` 会静态检查变量作用域、兜底与「无颜色字面量」。
+- **工具输出必须是无损 JSON（0.2.x）**：`dsh-tools` 用 `snapshotJsonValue` 快照每个工具结果，只要出现 `undefined`、
+  NaN、稀疏数组或非普通对象，整次调用就以 `value is not lossless JSON` 失败。SVN 的 XML 本来就有大量可选字段
+  （未版本化条目没有 revision、不带 `-v` 的 `svn log` 没有 paths、`svn list` 的目录条目没有 size…），
+  因此解析层省略缺失字段，工具出口再统一归一化一次（`toLosslessJson`，覆盖全部 33 个工具）；
+  `verify:tools` 会在临时版本库上跑真实工具并断言无损。
 - DSH 的插件兼容门禁（`dsh-app-boot` 的 `evaluatePluginCompatibility`）只用
   `semver.satisfies(runtime, range, { includePrerelease: true })` 判 `@deepseek-ai/dsh` / `@deepseek-ai/dsh-*` 两类 peer，
   预发布参与比较；`engines.dsh` 存在时**单独决定**（peer 不再参与）。
@@ -257,14 +263,17 @@ SVN 不在工作副本保存提交日志文本，因此这些条目明确显示�
 ```sh
 npm run verify:hardening      # 纯 Node：URL 直通、位置参数防注入、提交修复结果形状
 npm run verify:settings       # 纯 Node：载体解析/回退、设置 store、载体注册账目、设置卡片
-npm run verify:offline        # 纯 Node：离线/只读策略、三态界面渲染、无「永久离线」入口
+npm run verify:offline        # 纯 Node：离线/只读策略、三态界面渲染、无「永久离线」入口、空态区分加载/失败/干净
 npm run verify:readme         # 纯 Node：中英 README 的锚点/切换入口/License、工具与设置表与代码一致
+npm run verify:theme          # 纯 Node：主题变量作用域与兜底、无颜色字面量、页签图标取色
+npm run verify:tools          # 纯 Node + svn/svnadmin：33 个工具输出通过无损 JSON 快照
 npm run verify:settings:host  # 需要真实工作副本：命名空间与默认值、非法值拒绝、svnPath/超时生效
 npm run verify:offline:host   # 需要真实工作副本：本地历史与分页、连接分类、只读拒绝、离线回退不误删
 ```
 
-前三个脚本只需要 Node（+ React，用于静态渲染）；后两个接收一个工作副本路径。
-`verify:offline:host` 在参数缺省时用当前目录。
+除最后两个外都只需要 Node（`verify:settings` / `verify:offline` 另需 React 做静态渲染，
+`verify:tools` 另需 `svn` 与 `svnadmin`，会在临时版本库上自建夹具）。
+最后两个接收一个工作副本路径，`verify:offline:host` 在参数缺省时用当前目录。
 
 仓库结构：
 

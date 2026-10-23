@@ -203,9 +203,16 @@ Invalid values (a misspelled carrier, an out-of-range number) are rejected by th
   The built-in sidebar exists from `0.1.0-rc.6` on, so the criterion is "rc.6 and everything above", not per-major-line ranges.
 - **Panel colours depend on theme tokens**: the panel stylesheet only references DSH theme semantic aliases
   (`--dsw-alias-*`, `--dsw-elevation-*`, `--dsw-radius-*`) — no colour literals and no light/dark branches of its own,
-  following the feature-component rules in DSH `docs/web-styling.zh.md`. Those tokens were introduced in `0.1.0-rc.7`,
-  so the **themed look needs `0.1.0-rc.7+`**; on `0.1.0-rc.6` the host provides none of them and the panel falls back to the
-  host's default foreground colour (text stays readable, hairlines and surfaces disappear) without any functional loss.
+  following the feature-component rules in DSH `docs/web-styling.zh.md`. The host's ui-theme owns those tokens and the
+  exact set varies slightly between builds; a few of them (`--dsw-radius-*`, `--dsw-focus-ring-*`, `--dsw-alias-file-diff-*`)
+  are **not exported by every build**, so they are read through local `--dsh-svn-*` variables with built-in fallbacks:
+  a host without them degrades to square corners / the default focus ring / state-coloured diff rows instead of losing the
+  whole declaration. `verify:theme` statically checks the scope, the fallbacks and the "no colour literals" rule.
+- **Tool output must be lossless JSON (0.2.x)**: `dsh-tools` snapshots every tool result with `snapshotJsonValue`, and one
+  `undefined`, NaN, sparse array or non-plain object rejects the whole call with `value is not lossless JSON`. SVN's XML
+  genuinely omits fields (an unversioned entry has no revision, `svn log` without `-v` has no paths, `svn list` has no size
+  for directories…), so the parsers omit absent fields and the tool exit normalises once more (`toLosslessJson`, covering all
+  33 tools); `verify:tools` drives the real tools against a temporary repository and asserts losslessness.
 - DSH's plugin compatibility gate (`evaluatePluginCompatibility` in `dsh-app-boot`) inspects `@deepseek-ai/dsh` and `@deepseek-ai/dsh-*` peers through
   `semver.satisfies(runtime, range, { includePrerelease: true })`, so prereleases take part in the comparison; when `engines.dsh` is present it **decides alone** (the peers are then ignored).
 - The plugin market (`dshmarket`) decides with `deriveHostCompatibility`, treating `engines.dsh` and the peers as **conjunctive** conditions.
@@ -241,13 +248,17 @@ Release notes live in [Releases](https://github.com/zengweicheng666/dsh-svn-tool
 ```sh
 npm run verify:hardening      # pure Node: URL passthrough, operand-injection guard, commit-repair result shape
 npm run verify:settings       # pure Node: carrier resolution/fallback, settings store, registration bookkeeping, settings card
-npm run verify:offline        # pure Node: offline/read-only policy, three-mode rendering, "no permanent offline"
+npm run verify:offline        # pure Node: offline/read-only policy, three-mode rendering, "no permanent offline", loading/failed/clean empty states
 npm run verify:readme         # pure Node: both READMEs' anchors/switcher/License, tool and settings tables vs. the code
+npm run verify:theme          # pure Node: theme-variable scope and fallbacks, no colour literals, sidebar icon colours
+npm run verify:tools          # pure Node + svn/svnadmin: all 33 tools' output survives the lossless-JSON snapshot
 npm run verify:settings:host  # needs a real working copy: namespace and defaults, invalid-value rejection, svnPath/timeout in effect
 npm run verify:offline:host   # needs a real working copy: local history and paging, connection classification, read-only refusal, offline restore safety
 ```
 
-The first three need only Node (plus React for the static renders); the last two take a working-copy path (`verify:offline:host` defaults to the current directory).
+All but the last two need only Node (`verify:settings` / `verify:offline` also need React for the static renders, and
+`verify:tools` needs `svn` + `svnadmin` because it builds a throwaway repository). The last two take a working-copy path
+(`verify:offline:host` defaults to the current directory).
 
 Repository layout:
 
