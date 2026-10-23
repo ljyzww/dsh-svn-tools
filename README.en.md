@@ -25,6 +25,7 @@
 - [Quick start](#quick-start)
 - [Sidebar panel](#sidebar-panel)
   - [Carriers](#carriers) · [Changes](#changes) · [Commit](#commit) · [History](#history) · [Online / offline / read-only](#online--offline--read-only)
+- [Multiple / nested working copies](#multiple--nested-working-copies)
 - [Agent tools (33)](#agent-tools-33)
 - [Settings (10)](#settings-10)
 - [DSH version compatibility](#dsh-version-compatibility)
@@ -43,6 +44,7 @@
 | **33 `svn_*` agent tools** | Full subcommand coverage: status, diff, history, properties, branch/merge, locking, changelists, import/export; Chinese commit messages go through a UTF-8 temp file + `--encoding utf-8`, avoiding Windows GBK console mangling |
 | **One panel, two carriers** | Renders in **DSH's built-in right Sidebar** (a `kind: svn` tab plus a guide entry) or in **dsh-better-sidebar**; switchable in Settings, with automatic fallback when one is unavailable, and `off` when neither exists |
 | **Side-by-side revision compare** | Repository BASE on the left, working copy on the right; diff-block navigation plus "take left / take right / keep both", writing straight to the working-copy file |
+| **Multiple / nested working copies** | The top strip follows the main checkout plus independently checked-out subtrees (Unity's `Assets/arts`); writes, history and diffs route to the selected one, and a cross-checkout commit is refused instead of half-committed |
 | **Works when the server is down** | Offline history comes from the local log cache plus `.svn/wc.db` revision metadata; read-only mode disables writes with a second server-side check |
 | **Commit preparation** | Unversioned `?` files are `svn add`ed and missing `!` files `svn delete`d before committing — with honest reporting (including failures) and a switch for each action |
 | **Two DSH generations** | Compatible with `>=0.1.0-rc.6`; the settings surface adapts per version (0.1.x namespace card / 0.2.x entry-config form) |
@@ -57,7 +59,7 @@ Install from the [DSH plugin market](https://awesome-dsh-plugin.com/p/zengweiche
 dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools
 
 # Pin a version (reproducible install; see "Updates and install form" for the trade-off)
-dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.13.9
+dsh plugin --profile web add github:zengweicheng666/dsh-svn-tools#v0.14.0
 
 # Local source checkout
 dsh plugin --profile web add file:./plugins/dsh-svn-tools
@@ -146,6 +148,20 @@ SVN does not store commit messages in the working copy, so those entries state t
 
 ---
 
+## Multiple / nested working copies
+
+The panel can follow any number of working copies at once, including **nested checkouts** inside the main one (Unity's `Assets/arts`, `ProjectSettings` — independent checkouts, not `svn:externals`).
+
+- **The "working copies" strip** lists each checkout with its label, revision and change count; click to switch, `×` to stop following, `+ working copy` to add an absolute path (a file or subdirectory inside a checkout is normalised to that checkout's root).
+- **The change list is grouped per checkout** and every row carries its owner; rows of another checkout stay view/compare/blame-only — their checkbox and write buttons are disabled.
+- **Writes route to the selected checkout**: commit, update, cleanup, switch branch, revert, add, delete, plus history, locks and diff. Compare/blame route by the file's own working copy.
+- **A commit only covers the selected checkout**: a cross-checkout selection is refused with the file names instead of being half-committed, and a nested checkout directory is neither listed as an unversioned change of its parent nor auto-`svn add`ed.
+- The list is persisted **per session workspace** (`%LOCALAPPDATA%\dsh-svn-tools\watched\<hash>.json`), so switching sessions does not lose it; at least one working copy is always kept.
+
+> No built-in directory browser yet: adding a checkout takes an absolute path (the placeholder is a generic example, never a real path). `verify:multi-wc` covers aggregation, routing, persistence and the cross-checkout refusal with two independent repositories.
+
+---
+
 ## Agent tools (33)
 
 | Category | Tools |
@@ -225,7 +241,7 @@ Invalid values (a misspelled carrier, an out-of-range number) are rejected by th
 
 - The checker needs two things: a **`repository` field** in the installed copy's `package.json` (declared since 0.13.0) and a **GitHub Release** in the repository (published as `v<version>` here).
   It compares **version numbers**, so tag- and commit-pinned installs are notified too.
-- The market compares **ref / commit identity**: a bare repository spec follows the default branch, while a spec with a ref (`#v0.13.9` or `#<commit>`) makes the market report "up to date" for that ref **forever** — that is what pinning means (reproducibility first), not a bug.
+- The market compares **ref / commit identity**: a bare repository spec follows the default branch, while a spec with a ref (`#v0.14.0` or `#<commit>`) makes the market report "up to date" for that ref **forever** — that is what pinning means (reproducibility first), not a bug.
 
 | Your goal | Do this |
 |---|---|
@@ -252,13 +268,14 @@ npm run verify:offline        # pure Node: offline/read-only policy, three-mode 
 npm run verify:readme         # pure Node: both READMEs' anchors/switcher/License, tool and settings tables vs. the code
 npm run verify:theme          # pure Node: theme-variable scope and fallbacks, no colour literals, sidebar icon colours
 npm run verify:tools          # pure Node + svn/svnadmin: all 33 tools' output survives the lossless-JSON snapshot
+npm run verify:multi-wc       # pure Node + svn/svnadmin: multi/nested working copies — aggregation, write routing, persistence, cross-checkout refusal
 npm run verify:settings:host  # needs a real working copy: namespace and defaults, invalid-value rejection, svnPath/timeout in effect
 npm run verify:offline:host   # needs a real working copy: local history and paging, connection classification, read-only refusal, offline restore safety
 ```
 
 All but the last two need only Node (`verify:settings` / `verify:offline` also need React for the static renders, and
-`verify:tools` needs `svn` + `svnadmin` because it builds a throwaway repository). The last two take a working-copy path
-(`verify:offline:host` defaults to the current directory).
+`verify:tools` / `verify:multi-wc` need `svn` + `svnadmin` because they build throwaway repositories). The last two take
+a working-copy path (`verify:offline:host` defaults to the current directory).
 
 Repository layout:
 
