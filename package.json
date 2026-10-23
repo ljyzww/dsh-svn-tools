@@ -19,7 +19,9 @@
     "verify:offline:host": "node scripts/verify-offline-host.mjs",
     "verify:readme": "node scripts/verify-readme.mjs",
     "verify:settings": "node scripts/verify-settings.mjs",
-    "verify:settings:host": "node scripts/verify-settings-host.mjs"
+    "verify:settings:host": "node scripts/verify-settings-host.mjs",
+    "verify:theme": "node scripts/verify-theme.mjs",
+    "verify:tools": "node scripts/verify-tool-output.mjs"
   },
   "keywords": [
     "deepseek",
@@ -75,6 +77,8 @@
     "scripts/verify-readme.mjs",
     "scripts/verify-settings.mjs",
     "scripts/verify-settings-host.mjs",
+    "scripts/verify-theme.mjs",
+    "scripts/verify-tool-output.mjs",
     "cordis.patch.yml",
     "README.md",
     "README.en.md",
