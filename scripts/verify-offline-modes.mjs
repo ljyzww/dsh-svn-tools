@@ -235,6 +235,34 @@ html = renderToStaticMarkup(React.createElement(CommitView, {
 }));
 check(/无法读取工作副本状态/.test(html), 'the commit hint repeats the load failure');
 
+console.log('multi working-copy list:');
+const parentWc = 'C:\\proj\\main';
+const nestedWc = 'C:\\proj\\main\\arts';
+const multiEntries = [
+  { path: parentWc + '\\a.txt', status: 'M', _wc: parentWc, _wcLabel: 'main' },
+  { path: nestedWc + '\\b.txt', status: '?', _wc: nestedWc, _wcLabel: 'arts' },
+];
+html = renderToStaticMarkup(React.createElement(ChangesView, {
+  entries: multiEntries, rawEntries: multiEntries, rawCount: 2, loaded: true,
+  sel: {}, summary: { M: 1, '?': 1 }, activeWc: parentWc, grouped: true,
+  onDiff() {}, onToggle() {}, onAdd() {}, onRevert() {}, onDelete() {}, onBlame() {},
+  onResolve() {}, onIgnore() {}, onGroupCheck() {}, onBatchDelete() {}, onBatchRevert() {},
+}));
+check(/main · 1 个变更/.test(html), 'the parent working copy gets a group header');
+check(/arts · 1 个变更/.test(html), 'the nested working copy gets its own group header');
+check((html.match(/type="checkbox"/g) || []).length === 2, 'both rows keep their checkbox');
+const disabledBoxes = (html.match(/<input[^>]*>/g) || []).filter((tag) => tag.includes('disabled'));
+check(disabledBoxes.length === 1,
+  'only the row of the non-active working copy is disabled',
+  String(disabledBoxes.length));
+html = renderToStaticMarkup(React.createElement(ChangesView, {
+  entries: multiEntries, rawEntries: multiEntries, rawCount: 2, loaded: true,
+  sel: {}, summary: { M: 1, '?': 1 }, activeWc: parentWc, grouped: false,
+  onDiff() {}, onToggle() {}, onAdd() {}, onRevert() {}, onDelete() {}, onBlame() {},
+  onResolve() {}, onIgnore() {}, onGroupCheck() {}, onBatchDelete() {}, onBatchRevert() {},
+}));
+check(!/dsh-svn-wcgroup/.test(html), 'a single working copy renders without group headers');
+
 if (failures > 0) {
   console.error(`\n${failures} check(s) FAILED`);
   process.exit(1);
