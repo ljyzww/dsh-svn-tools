@@ -238,9 +238,10 @@ check(/无法读取工作副本状态/.test(html), 'the commit hint repeats the 
 console.log('multi working-copy list:');
 const parentWc = 'C:\\proj\\main';
 const nestedWc = 'C:\\proj\\main\\arts';
+const checkoutRoot = 'C:\\proj';
 const multiEntries = [
-  { path: parentWc + '\\a.txt', status: 'M', _wc: parentWc, _wcLabel: 'main' },
-  { path: nestedWc + '\\b.txt', status: '?', _wc: nestedWc, _wcLabel: 'arts' },
+  { path: parentWc + '\\a.txt', status: 'M', _wc: parentWc, _wcLabel: 'main', _wcRoot: checkoutRoot },
+  { path: nestedWc + '\\b.txt', status: '?', _wc: nestedWc, _wcLabel: 'arts', _wcRoot: checkoutRoot },
 ];
 html = renderToStaticMarkup(React.createElement(ChangesView, {
   entries: multiEntries, rawEntries: multiEntries, rawCount: 2, loaded: true,
@@ -250,6 +251,12 @@ html = renderToStaticMarkup(React.createElement(ChangesView, {
 }));
 check(/main · 1 个变更/.test(html), 'the parent working copy gets a group header');
 check(/arts · 1 个变更/.test(html), 'the nested working copy gets its own group header');
+const groupTitles = [...html.matchAll(/class="dsh-svn-wcgroup" title="([^"]*)"/g)].map((m) => m[1]);
+check(groupTitles.length === 2, 'both group headers carry a tooltip', String(groupTitles.length));
+check(groupTitles.some((t) => t.includes(nestedWc)), 'the tooltip carries the scope full path',
+  JSON.stringify(groupTitles));
+check(groupTitles.some((t) => t.includes('检出根：' + checkoutRoot)),
+  'the tooltip names the checkout root when the scope is a subdirectory', JSON.stringify(groupTitles));
 check((html.match(/type="checkbox"/g) || []).length === 2, 'both rows keep their checkbox');
 const disabledBoxes = (html.match(/<input[^>]*>/g) || []).filter((tag) => tag.includes('disabled'));
 check(disabledBoxes.length === 1,
@@ -262,6 +269,12 @@ html = renderToStaticMarkup(React.createElement(ChangesView, {
   onResolve() {}, onIgnore() {}, onGroupCheck() {}, onBatchDelete() {}, onBatchRevert() {},
 }));
 check(!/dsh-svn-wcgroup/.test(html), 'a single working copy renders without group headers');
+
+html = renderToStaticMarkup(React.createElement(CommitView, {
+  entries: [], sel: {}, msg: '', commitAll: true, hiddenUnvCount: 0, loaded: true, wcLabel: 'LuaScript',
+}));
+check(/当前范围：LuaScript/.test(html), 'the commit form names the active scope, not a working copy');
+check(!/当前工作副本/.test(html), 'the commit form no longer calls a subdirectory scope a working copy');
 
 if (failures > 0) {
   console.error(`\n${failures} check(s) FAILED`);
